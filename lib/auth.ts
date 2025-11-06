@@ -1,148 +1,117 @@
-// lib/auth.ts - Updated to use MongoDB backend API
+// lib/auth.ts - Firebase authentication functions
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User,
+  UserCredential,
+} from 'firebase/auth';
+import { auth } from './firebase';
 
-export interface User {
-  id: string;
-  email: string;
+// Ensure auth is available
+if (typeof window !== 'undefined' && !auth) {
+  console.error('Firebase Auth is not initialized. Please check your Firebase configuration.');
 }
 
 export interface AuthResponse {
-  token: string;
   user: User;
   message: string;
 }
 
-// Helper function to get token from localStorage
-const getToken = (): string | null => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('auth_token');
-  }
-  return null;
-};
-
-// Helper function to set token in localStorage
-const setToken = (token: string): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('auth_token', token);
-  }
-};
-
-// Helper function to remove token from localStorage
-const removeToken = (): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('auth_token');
-  }
-};
-
 // Sign In
 export async function login(email: string, password: string): Promise<AuthResponse> {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized. Please refresh the page and try again.');
+  }
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to login');
-    }
-
-    // Store token
-    setToken(data.token);
-
-    return data;
+    const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
+    return {
+      user: userCredential.user,
+      message: 'Successfully signed in',
+    };
   } catch (error: any) {
-    throw new Error(error.message || 'Failed to login');
+    console.error('Login error:', error);
+    let errorMessage = 'Failed to sign in';
+    if (error.code) {
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password';
+      } else {
+        errorMessage = error.message || `Authentication error: ${error.code}`;
+      }
+    } else {
+      errorMessage = error.message || 'Failed to sign in. Please check your connection and try again.';
+    }
+    throw new Error(errorMessage);
   }
 }
 
 // Sign Up
 export async function register(email: string, password: string): Promise<AuthResponse> {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized. Please refresh the page and try again.');
+  }
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to register');
-    }
-
-    // Store token
-    setToken(data.token);
-
-    return data;
+    const userCredential: UserCredential = await createUserWithEmailAndPassword(auth, email, password);
+    return {
+      user: userCredential.user,
+      message: 'Successfully registered',
+    };
   } catch (error: any) {
-    throw new Error(error.message || 'Failed to register');
+    let errorMessage = 'Failed to register';
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = 'An account with this email already exists';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Invalid email address';
+    } else if (error.code === 'auth/operation-not-allowed') {
+      errorMessage = 'Email/password accounts are not enabled';
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = 'Password is too weak';
+    }
+    throw new Error(errorMessage);
   }
 }
 
 // Sign Out
 export async function logout(): Promise<void> {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized');
+  }
   try {
-    const token = getToken();
-    
-    if (token) {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-    }
-
-    // Remove token from localStorage
-    removeToken();
-  } catch (error) {
-    console.error('Logout error:', error);
-    // Still remove token even if API call fails
-    removeToken();
+    await signOut(auth);
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to sign out');
   }
 }
 
 // Get current user
-export async function getCurrentUser(): Promise<User | null> {
-  try {
-    const token = getToken();
-    
-    if (!token) {
-      return null;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      removeToken();
-      return null;
-    }
-
-    const data = await response.json();
-    return data.user;
-  } catch (error) {
-    console.error('Get current user error:', error);
-    removeToken();
-    return null;
-  }
+export function getCurrentUser(): User | null {
+  if (!auth) return null;
+  return auth.currentUser;
 }
 
 // Check if user is authenticated
 export function isAuthenticated(): boolean {
-  return getToken() !== null;
+  if (!auth) return false;
+  return auth.currentUser !== null;
+}
+
+// Listen to auth state changes
+export function onAuthStateChange(callback: (user: User | null) => void): () => void {
+  if (!auth) {
+    console.error('Firebase Auth is not initialized');
+    return () => {}; // Return empty unsubscribe function
+  }
+  return onAuthStateChanged(auth, callback);
 }

@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-// IMPORTANT: import the login helper from lib/auth (uses MongoDB backend)
+// Import Firebase authentication
 import { login } from "@/lib/auth"
 
 export default function LoginPage() {
@@ -27,7 +27,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await login(email, password) // uses lib/auth.ts -> MongoDB backend API
+      const response = await login(email, password) // uses Firebase authentication
       console.log("Signed in user", response.user)
       router.push("/levels")
     } catch (err: any) {

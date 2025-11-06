@@ -27,9 +27,9 @@ export default function LevelsPage() {
     const loadUser = async () => {
       try {
         const { getCurrentUser } = await import("@/lib/auth")
-        const currentUser = await getCurrentUser()
+        const currentUser = getCurrentUser() // Firebase getCurrentUser is synchronous
         if (currentUser) {
-          setUser({ uid: currentUser.id, email: currentUser.email })
+          setUser({ uid: currentUser.uid, email: currentUser.email || "" })
         } else {
           // If not authenticated, redirect to login
           router.push("/login")

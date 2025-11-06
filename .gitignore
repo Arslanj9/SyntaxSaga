@@ -18,7 +18,7 @@ yarn-error.log*
 
 # env files (keep real secrets out of git)
 .env*
-backend/.env
+.env
 .env.local
 .env.development.local
 .env.test.local

@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+// Import Firebase authentication
 import { register } from "@/lib/auth" 
 
 export default function RegisterPage() {
