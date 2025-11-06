@@ -59,20 +59,25 @@ export default function Level4() {
   const [forwardSteps, setForwardSteps] = useState(0)
   const [generatedCode, setGeneratedCode] = useState<string>("")
   const [seahorsePosition, setSeahorsePosition] = useState<SeahorsePosition>({
-    x: 3.4,
-    z: -9,
+    x: 4.2,
+    z: -9.4,
     rotation: 0,
   })
 
   // 3 Coins: positions + collection
   // Note: Group offset is [-2, 0, 0], so coin positions in game space match rendering positions
   const COIN_POSITIONS = [
-    { x: 15, z: -1.6 },
+    { x: 15, z: -1 },
     { x: 28, z: -1.6 },
     { x: 15, z: 8 },
   ] as const
   const COLLECTION_DISTANCE = 3.5 // Increased distance to make collection easier
   const [coinCollected, setCoinCollected] = useState<[boolean, boolean, boolean]>([false, false, false])
+
+  const checkCoinCollection = (x: number, z: number, coinIndex: number): boolean => {
+    const distance = Math.sqrt(Math.pow(x - COIN_POSITIONS[coinIndex].x, 2) + Math.pow(z - COIN_POSITIONS[coinIndex].z, 2))
+    return distance < COLLECTION_DISTANCE
+  }
 
   const executeProgram = (commands: CommandBlock[]) => {
     if (commands.length === 0) return
@@ -133,40 +138,31 @@ export default function Level4() {
     }
 
     // Normalize rotation
-    if (newPosition.rotation > Math.PI || newPosition.rotation < -Math.PI) {
-      newPosition.rotation = Math.atan2(Math.sin(newPosition.rotation), Math.cos(newPosition.rotation))
-    }
+    newPosition.rotation = Math.atan2(Math.sin(newPosition.rotation), Math.cos(newPosition.rotation))
 
     setSeahorsePosition(newPosition)
 
-    // Check coin collection with a slight delay to ensure seahorse has reached position
-    setTimeout(() => {
-      setCoinCollected((prev) => {
-        const updated = [...prev] as [boolean, boolean, boolean]
-        let collectedAll = true
+    // Check coin collection (same pattern as Level 2)
+    setCoinCollected((prev) => {
+      const updated = [...prev] as [boolean, boolean, boolean]
+      let collectedAll = true
 
-        for (let i = 0; i < COIN_POSITIONS.length; i++) {
-          if (!updated[i]) {
-            const dx = newPosition.x - COIN_POSITIONS[i].x
-            const dz = newPosition.z - COIN_POSITIONS[i].z
-            const distance = Math.sqrt(dx * dx + dz * dz)
-            if (distance < COLLECTION_DISTANCE) {
-              updated[i] = true
-            }
-          }
-          if (!updated[i]) collectedAll = false
+      for (let i = 0; i < COIN_POSITIONS.length; i++) {
+        if (!updated[i] && checkCoinCollection(newPosition.x, newPosition.z, i)) {
+          updated[i] = true
         }
+        if (!updated[i]) collectedAll = false
+      }
 
-        if (collectedAll) {
-          setTimeout(() => {
-            setLevelCompleted(true)
-            setIsExecuting(false)
-          }, 500)
-        }
+      if (collectedAll) {
+        setTimeout(() => {
+          setLevelCompleted(true)
+          setIsExecuting(false)
+        }, 500)
+      }
 
-        return updated
-      })
-    }, 100) // Small delay to ensure position update is complete
+      return updated
+    })
 
     setTimeout(() => {
       executeNextCommand(commands, index + 1, newPosition, newStepCount)
@@ -233,10 +229,10 @@ export default function Level4() {
                   isAnimating={isExecuting}
                   onAnimationComplete={() => {}}
                 />
-                {/* Render coins only if not collected */}
-                {!coinCollected[0] && <Coin position={[15, 2.5, -1.6]} />}
-                {!coinCollected[1] && <Coin position={[28, 2.5, -1.6]} />}
-                {!coinCollected[2] && <Coin position={[15, 2.5, 8]} />}
+                {/* Render coins only if not collected - using COIN_POSITIONS for consistency */}
+                {!coinCollected[0] && <Coin position={[COIN_POSITIONS[0].x, 2.5, COIN_POSITIONS[0].z]} />}
+                {!coinCollected[1] && <Coin position={[COIN_POSITIONS[1].x, 2.5, COIN_POSITIONS[1].z]} />}
+                {!coinCollected[2] && <Coin position={[COIN_POSITIONS[2].x, 2.5, COIN_POSITIONS[2].z]} />}
               </group>
               <CameraController />
             </Suspense>
